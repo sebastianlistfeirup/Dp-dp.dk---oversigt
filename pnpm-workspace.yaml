@@ -1,0 +1,7 @@
+packages:
+  - .
+
+allowBuilds:
+  # Platformspakken indeholder allerede binærfilen; postinstall-verifikationen
+  # er ikke nødvendig og er derfor eksplicit slået fra.
+  esbuild: false

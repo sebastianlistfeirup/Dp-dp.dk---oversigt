@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { color-scheme: light; --dp-ease: cubic-bezier(0.22, 1, 0.36, 1); }
+  html { scroll-behavior: smooth; scroll-padding-top: 6rem; -webkit-text-size-adjust: 100%; }
+  body {
+    @apply m-0 bg-white font-sans text-dp-navy-900 antialiased;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+  }
+  h1, h2, h3, h4 { @apply font-serif; text-wrap: balance; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  ::selection { background: #f6d3b1; color: #16233a; }
+  :focus-visible { outline: 2px solid #df790d; outline-offset: 3px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+  }
+}
+
+@layer components {
+  .kicker { @apply flex items-center gap-2.5 text-kicker font-semibold uppercase tracking-[0.16em]; }
+  .kicker::before { content: ''; @apply block h-[3px] w-7 rounded-full bg-current; }
+  .card { @apply rounded-2xl border border-dp-navy-100 bg-white shadow-card; }
+  .card-hover { @apply transition-[transform,box-shadow] duration-300 ease-dp hover:-translate-y-0.5 hover:shadow-card-hover; }
+  .thin-scroll { scrollbar-width: thin; scrollbar-color: #d4dbe1 transparent; }
+  .thin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .thin-scroll::-webkit-scrollbar-thumb { background: #d4dbe1; border-radius: 99px; }
+}
+
+@page { size: A4 landscape; margin: 12mm; }
+@media print {
+  html { scroll-padding-top: 0; }
+  body { background: white; font-size: 9pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print\:hidden, button { display: none !important; }
+  section, article, figure, table { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+  .shadow-card, .shadow-card-hover { box-shadow: none !important; }
+  [style*='stroke-dashoffset'] { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
+}
