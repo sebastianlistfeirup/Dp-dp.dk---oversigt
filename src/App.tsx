@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AreaLine, Columns, Donut, Heatmap, HorizontalBars } from '@/components/charts'
+import { DetailDrawer, type DetailSelection } from '@/components/detail-drawer'
 import { Badge, ChartCard, DataTable, Kicker, Metric, Reveal, Section, SectionHeading, Wordmark } from '@/components/ui'
-import { dateLabel, fmt, monthLabel, pct, relativeChange, signed, useDashboard, type DailyPoint } from '@/lib/data'
+import { dateLabel, fmt, monthLabel, pct, relativeChange, signed, useDashboard, type DailyPoint, type DashboardData, type PeriodComparison } from '@/lib/data'
 
 const NAV = [
   ['status', 'Status'],
   ['udvikling', 'Udvikling'],
+  ['sammenligning', 'Sammenligning'],
   ['routing', 'Routing'],
   ['emner', 'Emner'],
   ['moenstre', 'Mønstre'],
@@ -16,6 +18,7 @@ const NAV = [
 export default function App() {
   const { data, error } = useDashboard()
   const [period, setPeriod] = useState<'30' | '90' | 'all'>('90')
+  const [detail, setDetail] = useState<DetailSelection>(null)
 
   const daily = useMemo(() => {
     if (!data) return []
@@ -92,11 +95,19 @@ export default function App() {
           </div>
         </Section>
 
+        <Section id="sammenligning" tone="sunken">
+          <SectionHeading kicker="Sammenligning" title="Hvordan ændrer belastningen sig?" lead="Perioderne sammenlignes med samme antal kalenderdage. Det gør uge- og månedstal retvisende, selv når den aktuelle periode ikke er afsluttet." />
+          <div className="grid gap-5 lg:grid-cols-3">
+            {data.comparisons.map((comparison, index) => <ComparisonCard key={comparison.key} comparison={comparison} delay={index * 0.06} />)}
+          </div>
+          <p className="mt-5 text-[0.74rem] leading-relaxed text-dp-navy-500">En ændring vises først som procent, når sammenligningsperioden indeholder mindst én mail. Manglende årshistorik markeres tydeligt og bliver automatisk udfyldt, når datagrundlaget når et helt år.</p>
+        </Section>
+
         <Section id="routing" tone="sunken">
           <SectionHeading kicker="Fordeling" title="Hvor bliver arbejdet sendt hen?" lead="Routing viser både belastningen på de enkelte funktioner og hvor meget der stadig kræver manuel sortering." />
           <div className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
             <ChartCard title="Routing og videresendelse" subtitle="Sorteret efter antal mails" table={<DataTable headers={['Destination', 'Mails']} rows={[...data.routing].sort((a, b) => b.count - a.count).map((route) => [route.label, route.count])} />}>
-              <HorizontalBars items={data.routing} />
+              <HorizontalBars items={data.routing} onSelect={(item) => setDetail({ kind: 'route', label: item.label })} />
             </ChartCard>
             <div className="grid gap-5">
               <article className="card p-6"><Donut value={s.fallbackRate} color="#df790d" label="Fallback / manuel sortering" /><p className="mt-5 border-t border-dp-navy-100 pt-4 text-[0.82rem] leading-relaxed text-dp-navy-600">{fmt(s.fallbackRows)} af {fmt(data.meta.sourceRows)} mails er ikke sikkert routet. Hver forbedret regel flytter arbejde fra sortering til behandling.</p></article>
@@ -104,23 +115,27 @@ export default function App() {
             </div>
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {data.routing.filter((route) => route.email !== 'Ikke konfigureret').map((route) => <article key={route.label} className="rounded-xl border border-dp-navy-100 bg-white px-4 py-3"><div className="flex items-center justify-between gap-4"><span className="font-semibold text-dp-navy-900">{route.label}</span><span className="tnum text-sm font-semibold" style={{ color: route.color }}>{fmt(route.count)}</span></div><div className="mt-1 truncate text-[0.7rem] text-dp-navy-500">{route.email}</div></article>)}
+            {data.routing.filter((route) => route.email !== 'Ikke konfigureret').map((route) => <button type="button" onClick={() => setDetail({ kind: 'route', label: route.label })} key={route.label} className="group rounded-xl border border-dp-navy-100 bg-white px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-dp-blaa hover:shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-dp-blaa"><div className="flex items-center justify-between gap-4"><span className="font-semibold text-dp-navy-900">{route.label}</span><span className="tnum text-sm font-semibold" style={{ color: route.color }}>{fmt(route.count)}</span></div><div className="mt-1 flex items-center justify-between gap-3"><span className="truncate text-[0.7rem] text-dp-navy-500">{route.email}</span><span className="text-[0.65rem] font-semibold text-dp-blaa opacity-0 transition group-hover:opacity-100">Detaljer</span></div></button>)}
           </div>
         </Section>
 
         <Section id="emner">
-          <SectionHeading kicker="Indhold" title="Hvad skriver medlemmerne om?" lead="Emnerne er klassificeret lokalt ud fra emneord og Body Preview. Kun optællinger og generelle beskrivelser vises her." />
-          <div className="grid gap-6 xl:grid-cols-[1fr_1.15fr]">
+          <SectionHeading kicker="Indhold" title="Hvad skriver medlemmerne om?" lead="Den lokale klassifikationsmodel kombinerer emneord, emnelinje, Body Preview og routing. Kun aggregerede resultater og modellens sikkerhed vises." />
+          <ClassificationOverview data={data} />
+          <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1.15fr]">
             <ChartCard title="Indholdstemaer" subtitle="Andel og volumen" table={<DataTable headers={['Tema', 'Mails', 'Andel']} rows={[...data.themes].sort((a, b) => b.count - a.count).map((theme) => [theme.label, theme.count, pct(theme.share)])} />}>
-              <HorizontalBars items={data.themes} />
+              <HorizontalBars items={data.themes} onSelect={(item) => setDetail({ kind: 'theme', label: item.label })} />
             </ChartCard>
             <div className="grid gap-4 sm:grid-cols-2">
               {[...data.themes].sort((a, b) => b.count - a.count).slice(0, 6).map((theme, index) => (
-                <Reveal key={theme.label} delay={index * 0.045} className="card card-hover p-5">
-                  <div className="flex items-start justify-between gap-3"><span className="h-3 w-3 rounded-[4px]" style={{ background: theme.color }} /><span className="tnum font-serif text-2xl font-semibold text-dp-navy-900">{fmt(theme.count)}</span></div>
-                  <h3 className="mt-4 font-serif text-lg font-semibold text-dp-navy-900">{theme.label}</h3>
-                  <p className="mt-2 text-[0.78rem] leading-relaxed text-dp-navy-500">{theme.summary}</p>
-                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-dp-navy-50"><motion.div className="h-full rounded-full" style={{ background: theme.color }} initial={{ width: 0 }} whileInView={{ width: `${theme.share * 100}%` }} viewport={{ once: true }} transition={{ duration: 0.8 }} /></div>
+                <Reveal key={theme.label} delay={index * 0.045}>
+                  <button type="button" onClick={() => setDetail({ kind: 'theme', label: theme.label })} className="card card-hover group h-full w-full p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dp-blaa">
+                    <div className="flex items-start justify-between gap-3"><span className="h-3 w-3 rounded-[4px]" style={{ background: theme.color }} /><span className="tnum font-serif text-2xl font-semibold text-dp-navy-900">{fmt(theme.count)}</span></div>
+                    <h3 className="mt-4 font-serif text-lg font-semibold text-dp-navy-900">{theme.label}</h3>
+                    <p className="mt-2 text-[0.78rem] leading-relaxed text-dp-navy-500">{theme.summary}</p>
+                    <div className="mt-4 flex items-center justify-between gap-3 text-[0.68rem]"><span className="font-semibold text-dp-navy-500">Sikkerhed {pct(theme.confidence, 0)}</span><span className="font-semibold text-dp-blaa opacity-0 transition group-hover:opacity-100">Åbn detaljer</span></div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-dp-navy-50"><motion.div className="h-full rounded-full" style={{ background: theme.color }} initial={{ width: 0 }} whileInView={{ width: `${theme.share * 100}%` }} viewport={{ once: true }} transition={{ duration: 0.8 }} /></div>
+                  </button>
                 </Reveal>
               ))}
             </div>
@@ -155,6 +170,8 @@ export default function App() {
         </Section>
       </main>
 
+      <DetailDrawer selection={detail} data={data} onClose={() => setDetail(null)} />
+
       <footer className="border-t border-dp-navy-100 bg-white"><div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-5 px-4 py-8 text-[0.74rem] text-dp-navy-500 sm:px-6"><Wordmark /><p className="max-w-2xl leading-relaxed">Ledelsesoverblik over DP's hovedpostkasse. Kilden er den aggregerede datafil i GitHub-repositoryet; ingen persondata indgår.</p></div></footer>
     </div>
   )
@@ -166,6 +183,31 @@ function PeriodPicker({ value, onChange }: { value: '30' | '90' | 'all'; onChang
 
 function Insight({ eyebrow, value, text, color }: { eyebrow: string; value: string; text: string; color: string }) {
   return <article className="rounded-xl border border-dp-navy-100 bg-white p-5"><div className="text-[0.65rem] font-bold uppercase tracking-[0.14em]" style={{ color }}>{eyebrow}</div><div className="mt-2 font-serif text-xl font-semibold text-dp-navy-900">{value}</div><p className="mt-1 text-[0.75rem] text-dp-navy-500">{text}</p></article>
+}
+
+function ComparisonCard({ comparison, delay }: { comparison: PeriodComparison; delay: number }) {
+  const positive = (comparison.delta || 0) >= 0
+  const color = comparison.available ? (positive ? '#df790d' : '#179fa0') : '#8299bb'
+  const currentPeriod = periodRange(comparison.currentStart, comparison.currentEnd)
+  const previousPeriod = periodRange(comparison.previousStart, comparison.previousEnd)
+  const changeLabel = !comparison.available ? 'Ikke nok historik' : comparison.change === null ? (comparison.previous === 0 ? `${signed(comparison.delta || 0)} fra en periode med 0` : 'Procent kan ikke beregnes') : `${comparison.change >= 0 ? '+' : ''}${pct(comparison.change, 0)}`
+  return <motion.article className="card overflow-hidden" initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.55, delay }}><div className="h-1.5" style={{ background: color }} /><div className="p-6"><div className="flex items-start justify-between gap-4"><div><div className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-dp-navy-500">{comparison.label}</div><div className="mt-2 text-[0.72rem] text-dp-navy-400">{currentPeriod}</div></div><Badge color={color}>{changeLabel}</Badge></div><div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-end gap-4"><div><div className="tnum font-serif text-4xl font-semibold text-dp-navy-900">{fmt(comparison.current)}</div><div className="mt-1 text-[0.68rem] text-dp-navy-500">Aktuel periode</div></div><div className="pb-5 text-dp-navy-200">mod</div><div className="text-right"><div className="tnum font-serif text-3xl font-semibold text-dp-navy-500">{comparison.previous === null ? '—' : fmt(comparison.previous)}</div><div className="mt-1 text-[0.68rem] text-dp-navy-500">{comparison.available ? previousPeriod : 'Historik mangler'}</div></div></div><p className="mt-5 border-t border-dp-navy-100 pt-4 text-[0.72rem] leading-relaxed text-dp-navy-500">{comparison.baseline}</p></div></motion.article>
+}
+
+function periodRange(start: string, end: string) {
+  if (start === end) return dateLabel(start, { day: 'numeric', month: 'short', year: 'numeric' })
+  return `${dateLabel(start, { day: 'numeric', month: 'short' })} – ${dateLabel(end, { day: 'numeric', month: 'short', year: 'numeric' })}`
+}
+
+function ClassificationOverview({ data }: { data: DashboardData }) {
+  const model = data.classification
+  const total = Math.max(1, model.high + model.medium + model.low)
+  const bands = [
+    ['Høj', model.high, '#179fa0'],
+    ['Mellem', model.medium, '#d8a90c'],
+    ['Lav', model.low, '#df790d'],
+  ] as const
+  return <article className="overflow-hidden rounded-2xl bg-dp-navy-900 text-white shadow-band"><div className="grid gap-7 p-6 sm:p-8 lg:grid-cols-[1.15fr_1fr]"><div><Kicker color="#edac73">{data.meta.modelVersion}</Kicker><h3 className="mt-3 font-serif text-2xl font-semibold">Klassifikation med synlig sikkerhed</h3><p className="mt-3 max-w-xl text-[0.82rem] leading-relaxed text-dp-navy-300">{model.method}</p><div className="mt-5 flex flex-wrap gap-2"><Badge color="#8ebec0">{pct(data.summary.classifiedRate, 0)} klassificeret</Badge><Badge color="#edac73">{fmt(model.unknown)} uklare</Badge></div></div><div className="rounded-2xl border border-white/10 bg-white/[0.045] p-5"><div className="flex items-end justify-between gap-4"><div><div className="text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-dp-navy-300">Gennemsnitlig sikkerhed</div><div className="tnum mt-2 font-serif text-4xl font-semibold text-white">{pct(model.average, 0)}</div></div><div className="text-right text-[0.7rem] leading-relaxed text-dp-navy-300">Høj sikkerhed kræver<br />flere samstemmende signaler</div></div><div className="mt-5 flex h-3 overflow-hidden rounded-full bg-white/10">{bands.map(([label, count, color]) => <div key={label} style={{ width: `${count / total * 100}%`, background: color }} title={`${label}: ${count}`} />)}</div><div className="mt-4 grid grid-cols-3 gap-2">{bands.map(([label, count, color]) => <div key={label}><div className="flex items-center gap-1.5 text-[0.67rem] text-dp-navy-300"><span className="h-2 w-2 rounded-full" style={{ background: color }} />{label}</div><div className="tnum mt-1 text-sm font-semibold text-white">{fmt(count)} <span className="font-normal text-dp-navy-300">· {pct(count / total, 0)}</span></div></div>)}</div></div></div></article>
 }
 
 function QualityCard({ title, value, good, bad, color }: { title: string; value: number; good: string; bad: string; color: string }) {

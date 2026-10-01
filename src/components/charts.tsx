@@ -61,17 +61,18 @@ export function Columns({ points, color = '#179fa0', height = 260 }: { points: {
   )
 }
 
-export function HorizontalBars({ items, limit = 12 }: { items: Segment[]; limit?: number }) {
+export function HorizontalBars({ items, limit = 12, onSelect }: { items: Segment[]; limit?: number; onSelect?: (item: Segment) => void }) {
   const shown = useMemo(() => [...items].sort((a, b) => b.count - a.count).slice(0, limit), [items, limit])
   const max = Math.max(1, ...shown.map((item) => item.count))
   return (
     <div className="space-y-3.5">
-      {shown.map((item, index) => (
-        <div key={item.label}>
+      {shown.map((item, index) => {
+        const content = <>
           <div className="mb-1.5 flex items-baseline justify-between gap-4 text-[0.78rem]"><span className="truncate font-medium text-dp-navy-800" title={item.label}>{item.label}</span><span className="tnum shrink-0 font-semibold text-dp-navy-900">{fmt(item.count)}</span></div>
           <div className="h-2.5 overflow-hidden rounded-full bg-dp-navy-50"><motion.div className="h-full rounded-full" style={{ background: item.color }} initial={{ width: 0 }} whileInView={{ width: `${(item.count / max) * 100}%` }} viewport={{ once: true }} transition={{ duration: 0.75, delay: index * 0.04, ease: [0.22, 1, 0.36, 1] }} /></div>
-        </div>
-      ))}
+        </>
+        return onSelect ? <button key={item.label} type="button" onClick={() => onSelect(item)} className="group w-full rounded-lg p-1 text-left transition hover:bg-dp-navy-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dp-blaa">{content}<span className="mt-1 hidden text-[0.65rem] font-semibold text-dp-blaa group-hover:block">Åbn detaljer</span></button> : <div key={item.label}>{content}</div>
+      })}
     </div>
   )
 }
