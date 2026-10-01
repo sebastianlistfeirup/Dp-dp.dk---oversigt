@@ -2,23 +2,29 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AreaLine, Columns, Donut, Heatmap, HorizontalBars } from '@/components/charts'
 import { DetailDrawer, type DetailSelection } from '@/components/detail-drawer'
+import { FilterBar, ForecastPanel, MonthlyChanges, RuleQualityPanel } from '@/components/management-features'
 import { Badge, ChartCard, DataTable, Kicker, Metric, Reveal, Section, SectionHeading, Wordmark } from '@/components/ui'
+import { buildAnalytics, type DashboardFilters } from '@/lib/analytics'
 import { dateLabel, fmt, monthLabel, pct, relativeChange, signed, useDashboard, type DailyPoint, type DashboardData, type PeriodComparison } from '@/lib/data'
 
 const NAV = [
   ['status', 'Status'],
   ['udvikling', 'Udvikling'],
   ['sammenligning', 'Sammenligning'],
+  ['prognose', 'Prognose'],
+  ['maaned', 'Månedsblik'],
   ['routing', 'Routing'],
   ['emner', 'Emner'],
-  ['moenstre', 'Mønstre'],
   ['kvalitet', 'Datakvalitet'],
 ] as const
 
 export default function App() {
-  const { data, error } = useDashboard()
+  const { data: sourceData, error } = useDashboard()
   const [period, setPeriod] = useState<'30' | '90' | 'all'>('90')
   const [detail, setDetail] = useState<DetailSelection>(null)
+  const [filters, setFilters] = useState<DashboardFilters>({ from: '', to: '', theme: '', route: '' })
+  const analytics = useMemo(() => sourceData ? buildAnalytics(sourceData, filters) : null, [sourceData, filters])
+  const data = analytics?.dashboard || null
 
   const daily = useMemo(() => {
     if (!data) return []
@@ -26,8 +32,8 @@ export default function App() {
     return data.daily.slice(-Number(period))
   }, [data, period])
 
-  if (error && !data) return <LoadError message={error} />
-  if (!data) return <Splash />
+  if (error && !sourceData) return <LoadError message={error} />
+  if (!sourceData || !data || !analytics) return <Splash />
 
   const s = data.summary
   const dayChange = s.latestDay.count - s.previousActiveDay.count
@@ -52,6 +58,8 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      <FilterBar source={sourceData} filters={filters} onChange={(next) => { setFilters(next); setDetail(null) }} />
 
       <main>
         <section id="status" className="scroll-mt-24 overflow-hidden bg-dp-navy-900 text-white">
@@ -103,7 +111,17 @@ export default function App() {
           <p className="mt-5 text-[0.74rem] leading-relaxed text-dp-navy-500">En ændring vises først som procent, når sammenligningsperioden indeholder mindst én mail. Manglende årshistorik markeres tydeligt og bliver automatisk udfyldt, når datagrundlaget når et helt år.</p>
         </Section>
 
-        <Section id="routing" tone="sunken">
+        <Section id="prognose">
+          <SectionHeading kicker="Forventet mailmængde" title="Hvor ender ugen og måneden?" lead="Prognosen kombinerer det allerede modtagne med det normale mønster for de resterende ugedage. Emne og destination indgår; prognosen vises kun, når datofilteret omfatter den seneste dato." />
+          <ForecastPanel forecast={analytics.forecast} />
+        </Section>
+
+        <Section id="maaned" tone="sunken">
+          <SectionHeading kicker="Månedens vigtigste ændringer" title="Hvad voksede, faldt eller flyttede sig?" lead="Den seneste afsluttede måned sammenlignes med måneden før. Emner vises som antal, mens routing også vises som ændring i andel." />
+          <MonthlyChanges changes={analytics.monthlyChange} />
+        </Section>
+
+        <Section id="routing">
           <SectionHeading kicker="Fordeling" title="Hvor bliver arbejdet sendt hen?" lead="Routing viser både belastningen på de enkelte funktioner og hvor meget der stadig kræver manuel sortering." />
           <div className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
             <ChartCard title="Routing og videresendelse" subtitle="Sorteret efter antal mails" table={<DataTable headers={['Destination', 'Mails']} rows={[...data.routing].sort((a, b) => b.count - a.count).map((route) => [route.label, route.count])} />}>
@@ -149,11 +167,13 @@ export default function App() {
         </Section>
 
         <Section id="kvalitet" tone="sunken">
-          <SectionHeading kicker="Datakvalitet" title="Hvad skal forbedres først?" lead="Tre indikatorer gør det tydeligt, hvor næste automatiseringsindsats giver mest effekt." />
+          <SectionHeading kicker="Kvalitetsovervågning" title="Hvor er routingreglerne uenige med indholdet?" lead="Tekstens uafhængige emneklassifikation sammenholdes med den valgte destination. Lavt match peger på regler, der bør gennemgås." />
+          <RuleQualityPanel findings={analytics.ruleQuality} />
+          <div className="mb-5 mt-10"><Kicker color="#4e4897">Datakvalitet</Kicker><h3 className="mt-3 font-serif text-2xl font-semibold text-dp-navy-900">Grundlaget for analysen</h3></div>
           <div className="grid gap-5 md:grid-cols-3">
             <QualityCard title="Routing" value={1 - s.fallbackRate} good="Automatisk routet" bad={`${fmt(s.fallbackRows)} i fallback`} color="#df790d" />
             <QualityCard title="Indhold" value={s.classifiedRate} good="Tematisk klassificeret" bad={`${fmt(unknown?.count ?? 0)} uklare`} color="#4e4897" />
-            <QualityCard title="Tidsstempel" value={data.meta.validRows / data.meta.sourceRows} good="Har gyldigt tidspunkt" bad={`${fmt(data.meta.missingTimestamp)} mangler`} color="#179fa0" />
+            <QualityCard title="Tidsstempel" value={data.meta.sourceRows ? data.meta.validRows / data.meta.sourceRows : 0} good="Har gyldigt tidspunkt" bad={`${fmt(data.meta.missingTimestamp)} mangler`} color="#179fa0" />
           </div>
           <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <article className="card p-6 sm:p-8"><Kicker>Næste ledelsesgreb</Kicker><h3 className="mt-3 font-serif text-2xl font-semibold text-dp-navy-900">Fra overblik til styring</h3><ol className="mt-6 space-y-5">{[

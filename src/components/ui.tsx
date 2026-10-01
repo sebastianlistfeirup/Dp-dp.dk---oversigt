@@ -72,7 +72,7 @@ export function SectionHeading({ kicker, title, lead, onDark = false, right }: {
 
 export function Section({ id, children, tone = 'light' }: { id: string; children: ReactNode; tone?: 'light' | 'sunken' | 'dark' }) {
   return (
-    <section id={id} className={`scroll-mt-28 ${tone === 'dark' ? 'bg-dp-navy-900' : tone === 'sunken' ? 'bg-dp-grey' : 'bg-white'}`}>
+    <section id={id} className={`scroll-mt-52 ${tone === 'dark' ? 'bg-dp-navy-900' : tone === 'sunken' ? 'bg-dp-grey' : 'bg-white'}`}>
       <div className="mx-auto w-full max-w-[80rem] px-4 py-14 sm:px-6 sm:py-20">{children}</div>
     </section>
   )

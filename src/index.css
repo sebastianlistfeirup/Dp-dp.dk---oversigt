@@ -24,6 +24,7 @@
   .kicker::before { content: ''; @apply block h-[3px] w-7 rounded-full bg-current; }
   .card { @apply rounded-2xl border border-dp-navy-100 bg-white shadow-card; }
   .card-hover { @apply transition-[transform,box-shadow] duration-300 ease-dp hover:-translate-y-0.5 hover:shadow-card-hover; }
+  .filter-control { @apply h-[2.4rem] min-w-[9.5rem] rounded-lg border border-dp-navy-200 bg-white px-3 text-[0.75rem] font-medium text-dp-navy-800 outline-none transition focus:border-dp-blaa focus:ring-2 focus:ring-dp-blaa/20; }
   .thin-scroll { scrollbar-width: thin; scrollbar-color: #d4dbe1 transparent; }
   .thin-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
   .thin-scroll::-webkit-scrollbar-thumb { background: #d4dbe1; border-radius: 99px; }

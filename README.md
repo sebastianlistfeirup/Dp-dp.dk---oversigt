@@ -7,6 +7,10 @@ Dashboardet indeholder også:
 - sammenligning af uge og måned med lige lange perioder samt samme periode sidste år
 - lokal, fler-signal emneklassifikation med sikkerhed pr. emne og samlet for modellen
 - klikbart drill-down på emner og destinationer med udvikling, undertyper, travleste dage og routingkvalitet
+- prognose for resten af ugen og måneden baseret på de seneste otte observerede uger
+- filtre på dato, emne og destination, som opdaterer nøgletal, grafer, prognose og kvalitet
+- månedsblik med de største emneændringer og skift i routingandel
+- kvalitetsovervågning, der finder uenighed mellem tekstens emne og den valgte destination
 
 **GitHub Pages:** `https://sebastianlistfeirup.github.io/Dp-dp.dk---oversigt/`
 
@@ -38,6 +42,7 @@ Frontendens eneste datakilde er `public/data/mail-dashboard.json`. Filen indehol
 - routingkategorier og destinationer
 - aggregerede indholdstemaer, undertyper, emneord og modelsikkerhed
 - privatlivssikre drill-down-data uden afsender, emnelinje eller mailtekst
+- en aggregeret filterkube med dato, emne, destination, undertype og optælling
 - ugedag/time-mønster
 - datakvalitetsmål
 

@@ -44,6 +44,28 @@ export interface RouteDrilldown {
   daily: DailyPoint[]
   busiestDays: DailyPoint[]
 }
+export interface FilterFact {
+  date: string | null
+  weekday: number | null
+  hour: number | null
+  route: string
+  routeMatch: string
+  theme: string
+  subtype: string
+  independentTheme: string
+  confidenceBand: 'high' | 'medium' | 'low'
+  routeReviewable: boolean
+  routeAligned: boolean | null
+  count: number
+  confidenceTotal: number
+}
+export interface KeywordFact {
+  date: string | null
+  theme: string
+  route: string
+  label: string
+  count: number
+}
 
 export interface DashboardData {
   meta: {
@@ -78,6 +100,8 @@ export interface DashboardData {
   keywords: Segment[]
   heatmap: HeatCell[]
   drilldowns: { themes: ThemeDrilldown[]; routes: RouteDrilldown[] }
+  filterFacts: FilterFact[]
+  keywordFacts: KeywordFact[]
 }
 
 export function useDashboard() {
